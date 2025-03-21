@@ -1,0 +1,85 @@
+import asyncio
+import statistics
+import time
+import pytest
+from tests.constants import ProductIds, COINBASE_WS_FEED_URL
+from tests.framework.latency_stats import analyze_2_data_feeds_latency, report_data_feeds_latency_stats
+from tests.framework.latency_stats import calculate_percentiles
+from tests.framework.logger import get_logger
+from tests.framework.time_coversion import iso_to_timestamp
+from websocket.clients.coinbase import WebSocketCoinBaseClient
+
+logger = get_logger(__name__)
+
+N_MESSAGES = 100
+PERCENTILES = [50, 90, 95, 99]
+
+async def collect_tickers(client: WebSocketCoinBaseClient, n_messages: int):
+    messages = []
+    timestamps = []
+
+    for _ in range(n_messages):
+        msg = await client.receive_message()
+        messages.append(msg)
+        timestamps.append(time.time())
+
+    return messages, timestamps
+
+
+def match_messages_by_trade_id(messages_a: list, times_a: list, messages_b: list, times_b: list):
+    matched = {}
+    for msg, ts in zip(messages_a, times_a):
+        trade_id = msg.get('trade_id')
+        if trade_id:
+            matched[trade_id] = {'A': ts - iso_to_timestamp(msg.get('time'))}
+
+    for msg, ts in zip(messages_b, times_b):
+        trade_id = msg.get('trade_id')
+        if trade_id:
+            if trade_id in matched:
+                matched[trade_id]['B'] = ts - iso_to_timestamp(msg.get('time'))
+            else:
+                matched[trade_id] = {'B': ts - iso_to_timestamp(msg.get('time'))}
+    return matched
+
+
+class TestCoinbaseWebsocketPerformance:
+    @pytest.mark.asyncio
+    async def test_message_receive_latency(self, coinbase_ws_client):
+        client = coinbase_ws_client
+        await client.subscribe([ProductIds.BTC_USD])
+
+        ticker_messages, receive_times = await collect_tickers(client, N_MESSAGES)
+
+        latencies = []
+
+        for msg, recv_time in zip(ticker_messages, receive_times):
+            latency = (recv_time - iso_to_timestamp(msg.get("time"))) * 1000  # latency in ms
+            latencies.append(latency)
+
+        results = calculate_percentiles(latencies, PERCENTILES)
+        logger.info(f"Latency Percentiles (ms): {results}")
+
+    @pytest.mark.asyncio
+    async def test_ab_latency_comparison(self):
+        client_a = WebSocketCoinBaseClient(COINBASE_WS_FEED_URL)
+        client_b = WebSocketCoinBaseClient(COINBASE_WS_FEED_URL)
+
+        await asyncio.gather(client_a.connect(), client_b.connect())
+        await asyncio.gather(
+            client_a.subscribe([ProductIds.BTC_USD]),
+            client_b.subscribe([ProductIds.BTC_USD])
+        )
+
+        # collect messages concurrently
+        (msgs_a, times_a), (msgs_b, times_b) = await asyncio.gather(
+            collect_tickers(client_a, N_MESSAGES),
+            collect_tickers(client_b, N_MESSAGES)
+        )
+
+        # we should compare only identical messages in both data feeds
+        matched_msg = match_messages_by_trade_id(msgs_a, times_a, msgs_b, times_b)
+        feeds_stats = analyze_2_data_feeds_latency(matched_msg, PERCENTILES)
+        report_data_feeds_latency_stats(feeds_stats)
+
+        await asyncio.gather(client_a.close(), client_b.close())
