@@ -19,3 +19,4 @@
 **Bonus:**
 
 The repository is integrated with GitHub CI, so you can view the test results directly without needing to clone the repo or set up the environment locally!
+https://github.com/choppergrip/websockets/actions/runs/13996948032/job/39194374348
