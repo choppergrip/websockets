@@ -1,5 +1,4 @@
 import asyncio
-import statistics
 import time
 import pytest
 from tests.constants import ProductIds, COINBASE_WS_FEED_URL
@@ -14,7 +13,7 @@ logger = get_logger(__name__)
 N_MESSAGES = 100
 PERCENTILES = [50, 90, 95, 99]
 
-async def collect_tickers(client: WebSocketCoinBaseClient, n_messages: int):
+async def collect_websocket_messages(client: WebSocketCoinBaseClient, n_messages: int):
     messages = []
     timestamps = []
 
@@ -52,7 +51,7 @@ class TestCoinbaseWebsocketTickerFeedPerformance:
         client = coinbase_ws_client
         await client.subscribe([ProductIds.BTC_USD])
 
-        ticker_messages, receive_times = await collect_tickers(client, N_MESSAGES)
+        ticker_messages, receive_times = await collect_websocket_messages(client, N_MESSAGES)
 
         latencies = []
 
@@ -61,11 +60,11 @@ class TestCoinbaseWebsocketTickerFeedPerformance:
             latencies.append(latency)
 
         results = calculate_percentiles(latencies, PERCENTILES)
-        logger.info(f"test_single_feed_receive_latency:")
+        logger.info("test_single_feed_receive_latency:")
         logger.info(f"Latency Percentiles (ms): {results}")
 
     @pytest.mark.asyncio
-    async def test_ab_latency_comparison(self):
+    async def test_ab_feeds_latency_comparison(self):
         client_a = WebSocketCoinBaseClient(COINBASE_WS_FEED_URL)
         client_b = WebSocketCoinBaseClient(COINBASE_WS_FEED_URL)
 
@@ -77,15 +76,15 @@ class TestCoinbaseWebsocketTickerFeedPerformance:
 
         # collect messages concurrently
         (msgs_a, times_a), (msgs_b, times_b) = await asyncio.gather(
-            collect_tickers(client_a, N_MESSAGES),
-            collect_tickers(client_b, N_MESSAGES)
+            collect_websocket_messages(client_a, N_MESSAGES),
+            collect_websocket_messages(client_b, N_MESSAGES)
         )
 
         # we should compare only identical messages in both data feeds
         matched_msg = match_messages_by_trade_id(msgs_a, times_a, msgs_b, times_b)
         feeds_stats = analyze_2_data_feeds_latency(matched_msg, PERCENTILES)
 
-        logger.info(f"test_ab_latency_comparison:")
+        logger.info("test_ab_latency_comparison:")
         report_data_feeds_latency_stats(feeds_stats, logger)
 
         await asyncio.gather(client_a.close(), client_b.close())

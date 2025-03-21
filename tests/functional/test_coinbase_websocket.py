@@ -5,9 +5,9 @@ from websocket.models.coinbase.ticker_subscription_messages import SubscriptionR
 
 async def _assert_error_response(response: dict, reason: str):
     error = SubscribeError.model_validate(response)
-    assert error.type == "error"
-    assert error.message == "Failed to subscribe"
-    assert error.reason == reason
+    assert error.type == "error", 'Incorrect error type'
+    assert error.message == "Failed to subscribe", 'Incorrect error message'
+    assert error.reason == reason, 'Incorrect error reason'
 
 
 class TestCoinbaseWebsocket:
@@ -22,7 +22,7 @@ class TestCoinbaseWebsocket:
         for _ in range(n_messages):
             message = await client.receive_message()
             validated_message = TickerMessage.model_validate(message)
-            assert validated_message.product_id == ProductIds.BTC_USD
+            assert validated_message.product_id == ProductIds.BTC_USD, 'Invalid product ID'
 
     @pytest.mark.asyncio
     async def test_subscribe_multiple_tickers(self, coinbase_ws_client):
@@ -58,7 +58,7 @@ class TestCoinbaseWebsocket:
         for _ in range(n_messages):
             message = await client.receive_message()
             validated_message = TickerMessage.model_validate(message)
-            assert validated_message.product_id == ProductIds.BTC_USD
+            assert validated_message.product_id == ProductIds.BTC_USD, 'Invalid product ID'
 
             # Check for duplicate sequence numbers
             assert validated_message.sequence not in sequences, f"Duplicate sequence found: {validated_message.sequence}"
