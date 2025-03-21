@@ -20,3 +20,5 @@
 
 The repository is integrated with GitHub CI, so you can view the test results directly without needing to clone the repo or set up the environment locally!
 https://github.com/choppergrip/websockets/actions/runs/13996948032/job/39194374348
+
+<img width="1163" alt="Screenshot 2025-03-21 at 21 03 24" src="https://github.com/user-attachments/assets/2a9e9e43-43c8-4e18-b694-42365d271ee7" />
