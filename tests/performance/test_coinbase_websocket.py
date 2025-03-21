@@ -40,12 +40,15 @@ def match_messages_by_trade_id(messages_a: list, times_a: list, messages_b: list
                 matched[trade_id]['B'] = ts - iso_to_timestamp(msg.get('time'))
             else:
                 matched[trade_id] = {'B': ts - iso_to_timestamp(msg.get('time'))}
+
+    assert len(matched) > 0, "No matching trade IDs found between messages_a and messages_b"
+
     return matched
 
 
-class TestCoinbaseWebsocketPerformance:
+class TestCoinbaseWebsocketTickerFeedPerformance:
     @pytest.mark.asyncio
-    async def test_message_receive_latency(self, coinbase_ws_client):
+    async def test_single_feed_receive_latency(self, coinbase_ws_client):
         client = coinbase_ws_client
         await client.subscribe([ProductIds.BTC_USD])
 
@@ -58,6 +61,7 @@ class TestCoinbaseWebsocketPerformance:
             latencies.append(latency)
 
         results = calculate_percentiles(latencies, PERCENTILES)
+        logger.info(f"test_single_feed_receive_latency:")
         logger.info(f"Latency Percentiles (ms): {results}")
 
     @pytest.mark.asyncio
@@ -80,6 +84,8 @@ class TestCoinbaseWebsocketPerformance:
         # we should compare only identical messages in both data feeds
         matched_msg = match_messages_by_trade_id(msgs_a, times_a, msgs_b, times_b)
         feeds_stats = analyze_2_data_feeds_latency(matched_msg, PERCENTILES)
-        report_data_feeds_latency_stats(feeds_stats)
+
+        logger.info(f"test_ab_latency_comparison:")
+        report_data_feeds_latency_stats(feeds_stats, logger)
 
         await asyncio.gather(client_a.close(), client_b.close())

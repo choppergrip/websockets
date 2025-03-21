@@ -1,7 +1,4 @@
 import statistics
-from tests.framework.logger import get_logger
-
-logger = get_logger(__name__)
 
 
 def analyze_2_data_feeds_latency(data_feeds_latencies: dict, percentiles: list):
@@ -32,7 +29,7 @@ def analyze_2_data_feeds_latency(data_feeds_latencies: dict, percentiles: list):
 
             results["total_matches"] += 1
         else:
-            logger.info(f"Trade {trade_id}: unmatched on one side")
+            pass
 
     # Calculate stats
     if results["a_latencies"]:
@@ -70,11 +67,7 @@ def calculate_percentiles(data: list, percentiles: list):
     return {p: round(statistics.quantiles(data, n=100)[p - 1], 2) for p in percentiles}
 
 
-def report_data_feeds_latency_stats(feeds_stats: dict):
-    if not feeds_stats.get('latency_diffs'):
-        logger.info("No matched messages found!")
-        return
-
+def report_data_feeds_latency_stats(feeds_stats: dict, logger):
     # Feed A stats
     logger.info(f"Feed A:")
     logger.info(f"Latency: mean={feeds_stats['mean_a']}ms")
